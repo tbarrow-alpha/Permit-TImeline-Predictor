@@ -32,10 +32,13 @@ def _build_messages(skill, conversation: list[dict]) -> list[dict]:
             f"=== {name} ===\n{content}"
             for name, content in sorted(skill.references.items())
         )
+        ref_text = f"<reference_files>\n{ref_block}\n</reference_files>\n\n"
+
         original = result[0]["content"]
-        result[0] = {
-            "role": "user",
-            "content": f"<reference_files>\n{ref_block}\n</reference_files>\n\n{original}",
-        }
+        if isinstance(original, str):
+            result[0] = {"role": "user", "content": ref_text + original}
+        else:
+            ref_text_block = {"type": "text", "text": ref_text.rstrip()}
+            result[0] = {"role": "user", "content": [ref_text_block] + list(original)}
 
     return result

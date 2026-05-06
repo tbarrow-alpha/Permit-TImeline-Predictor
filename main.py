@@ -5,6 +5,7 @@ import sys
 from skills import SkillLibrary
 from router import pick_skill
 from executor import run_skill_turn
+from attachments import parse_attachments
 
 REPO = "EDU-Ops-Team/Ops-Skills"
 
@@ -27,7 +28,8 @@ def main() -> None:
         sys.exit(1)
 
     print(f"\nReady — {len(library.skills)} skills loaded.")
-    print("Commands: 'new' to reset conversation, 'skills' to list, 'quit' to exit.\n")
+    print("Commands: 'new' to reset, 'skills' to list, 'quit' to exit.")
+    print("Attach files with @path (e.g. 'compare @existing.pdf @proposed.pdf').\n")
 
     current_skill = None
     conversation: list[dict] = []
@@ -58,7 +60,14 @@ def main() -> None:
             print()
             continue
 
-        selected = pick_skill(library, user_input, current_skill=current_skill)
+        try:
+            text_part, attachment_blocks = parse_attachments(user_input)
+        except (FileNotFoundError, ValueError) as e:
+            print(f"[Attachment error: {e}]\n")
+            continue
+
+        routing_text = text_part or "(file attachments only)"
+        selected = pick_skill(library, routing_text, current_skill=current_skill)
         if selected is None:
             available = ", ".join(s.name for s in library.skills)
             print(f"No matching skill found. Available: {available}\n")
@@ -71,7 +80,15 @@ def main() -> None:
             print(f"[Skill: {selected.name}]\n")
 
         current_skill = selected
-        conversation.append({"role": "user", "content": user_input})
+
+        if attachment_blocks:
+            print(f"[Attached {len(attachment_blocks)} file(s)]")
+            content_blocks = list(attachment_blocks)
+            if text_part:
+                content_blocks.append({"type": "text", "text": text_part})
+            conversation.append({"role": "user", "content": content_blocks})
+        else:
+            conversation.append({"role": "user", "content": text_part})
 
         try:
             response_text = run_skill_turn(current_skill, conversation)
