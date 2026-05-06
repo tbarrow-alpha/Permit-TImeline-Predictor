@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
+import datetime
 import os
+import re
 import sys
+from pathlib import Path
 
 from skills import SkillLibrary
 from router import pick_skill
@@ -9,6 +12,22 @@ from attachments import parse_attachments
 from local_store import append_note, skill_dir
 
 REPO = "EDU-Ops-Team/Ops-Skills"
+OUTPUT_ROOT = Path.home() / "ops-skills-output"
+
+
+def save_response(skill_name: str, response_text: str, custom_name: str | None) -> Path:
+    OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+    if custom_name:
+        stem = re.sub(r"[^A-Za-z0-9._-]+", "_", custom_name).strip("_") or "output"
+        if not stem.endswith(".md"):
+            stem += ".md"
+        path = OUTPUT_ROOT / stem
+    else:
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        path = OUTPUT_ROOT / f"{skill_name}_{timestamp}.md"
+    header = f"# {skill_name} — {datetime.datetime.now().isoformat(timespec='seconds')}\n\n"
+    path.write_text(header + response_text, encoding="utf-8")
+    return path
 
 
 def main() -> None:
@@ -29,13 +48,15 @@ def main() -> None:
         sys.exit(1)
 
     print(f"\nReady — {len(library.skills)} skills loaded.")
-    print("Commands: 'new' to reset, 'skills' to list, '/note <text>' to save a note, 'quit' to exit.")
+    print("Commands: 'new' to reset, 'skills' to list, '/note <text>' to save a note,")
+    print("          '/save [filename]' to write last result to ~/ops-skills-output/, 'quit' to exit.")
     print("Attach files with @path (e.g. 'calculate capacity @plan.pdf').")
     print("Include previous iterations as reference: '@new_plan.pdf @prior_plan.pdf @prior_calc.md'.")
     print("Local notes/refs live in ~/.ops-skills-local/<skill>/ (loaded automatically, never uploaded).\n")
 
     current_skill = None
     conversation: list[dict] = []
+    last_response: str | None = None
 
     while True:
         try:
@@ -55,6 +76,15 @@ def main() -> None:
             current_skill = None
             conversation = []
             print("[Conversation reset]\n")
+            continue
+
+        if user_input.lower() == "/save" or user_input.lower().startswith("/save "):
+            if last_response is None or current_skill is None:
+                print("[No result yet — run a request first]\n")
+                continue
+            custom_name = user_input[len("/save"):].strip() or None
+            path = save_response(current_skill.name, last_response, custom_name)
+            print(f"[Saved to {path}]\n")
             continue
 
         if user_input.startswith("/note "):
@@ -109,6 +139,7 @@ def main() -> None:
         try:
             response_text = run_skill_turn(current_skill, conversation)
             conversation.append({"role": "assistant", "content": response_text})
+            last_response = response_text
             print("\n")
         except Exception as e:
             print(f"\n[Error: {e}]\n")
