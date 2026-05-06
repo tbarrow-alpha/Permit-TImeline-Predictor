@@ -11,6 +11,7 @@ IMAGE_TYPES = {
     ".webp": "image/webp",
 }
 DOCUMENT_TYPES = {".pdf": "application/pdf"}
+TEXT_TYPES = {".md", ".txt", ".csv", ".json"}
 
 _AT_PATTERN = re.compile(r'@(\S+)')
 
@@ -45,6 +46,9 @@ def _file_to_block(raw_path: str) -> dict:
         raise FileNotFoundError(f"Attachment not found: {raw_path}")
 
     suffix = path.suffix.lower()
+    if suffix in TEXT_TYPES:
+        body = path.read_text(encoding="utf-8", errors="replace")
+        return {"type": "text", "text": f"=== {path.name} ===\n{body}"}
     if suffix in IMAGE_TYPES:
         media_type = IMAGE_TYPES[suffix]
         block_type = "image"
@@ -52,10 +56,8 @@ def _file_to_block(raw_path: str) -> dict:
         media_type = DOCUMENT_TYPES[suffix]
         block_type = "document"
     else:
-        raise ValueError(
-            f"Unsupported file type: {suffix} (supported: "
-            f"{', '.join(sorted(IMAGE_TYPES) + sorted(DOCUMENT_TYPES))})"
-        )
+        supported = sorted(IMAGE_TYPES) + sorted(DOCUMENT_TYPES) + sorted(TEXT_TYPES)
+        raise ValueError(f"Unsupported file type: {suffix} (supported: {', '.join(supported)})")
 
     size_mb = path.stat().st_size / (1024 * 1024)
     if size_mb > 30:

@@ -29,7 +29,8 @@ def main() -> None:
 
     print(f"\nReady — {len(library.skills)} skills loaded.")
     print("Commands: 'new' to reset, 'skills' to list, 'quit' to exit.")
-    print("Attach files with @path (e.g. 'compare @existing.pdf @proposed.pdf').\n")
+    print("Attach files with @path (e.g. 'calculate capacity @plan.pdf').")
+    print("Include previous iterations as reference: '@new_plan.pdf @prior_plan.pdf @prior_calc.md'.\n")
 
     current_skill = None
     conversation: list[dict] = []
