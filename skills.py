@@ -4,6 +4,8 @@ from typing import Optional
 import requests
 import frontmatter
 
+from local_store import load_local_references
+
 
 @dataclass
 class Skill:
@@ -67,6 +69,9 @@ class SkillLibrary:
         except requests.HTTPError:
             pass
 
+        local_refs = load_local_references(name)
+        references.update(local_refs)
+
         self.skills.append(Skill(
             name=name,
             description=description,
@@ -74,4 +79,5 @@ class SkillLibrary:
             system_prompt=raw,
             references=references,
         ))
-        print(f"  ✓ {name}")
+        local_tag = f" (+{len(local_refs)} local)" if local_refs else ""
+        print(f"  ✓ {name}{local_tag}")

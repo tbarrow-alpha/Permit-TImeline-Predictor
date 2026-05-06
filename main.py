@@ -6,6 +6,7 @@ from skills import SkillLibrary
 from router import pick_skill
 from executor import run_skill_turn
 from attachments import parse_attachments
+from local_store import append_note, skill_dir
 
 REPO = "EDU-Ops-Team/Ops-Skills"
 
@@ -28,9 +29,10 @@ def main() -> None:
         sys.exit(1)
 
     print(f"\nReady — {len(library.skills)} skills loaded.")
-    print("Commands: 'new' to reset, 'skills' to list, 'quit' to exit.")
+    print("Commands: 'new' to reset, 'skills' to list, '/note <text>' to save a note, 'quit' to exit.")
     print("Attach files with @path (e.g. 'calculate capacity @plan.pdf').")
-    print("Include previous iterations as reference: '@new_plan.pdf @prior_plan.pdf @prior_calc.md'.\n")
+    print("Include previous iterations as reference: '@new_plan.pdf @prior_plan.pdf @prior_calc.md'.")
+    print("Local notes/refs live in ~/.ops-skills-local/<skill>/ (loaded automatically, never uploaded).\n")
 
     current_skill = None
     conversation: list[dict] = []
@@ -53,6 +55,19 @@ def main() -> None:
             current_skill = None
             conversation = []
             print("[Conversation reset]\n")
+            continue
+
+        if user_input.startswith("/note "):
+            if current_skill is None:
+                print("[No active skill — pick one first by sending a request]\n")
+                continue
+            note_text = user_input[len("/note "):].strip()
+            if not note_text:
+                print("[Empty note — nothing saved]\n")
+                continue
+            path = append_note(current_skill.name, note_text)
+            current_skill.references[f"local/notes.md"] = path.read_text(encoding="utf-8")
+            print(f"[Saved to {path}]\n")
             continue
 
         if user_input.lower() in ("skills", "/skills", "list"):
